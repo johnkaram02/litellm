@@ -83,6 +83,38 @@ test.describe("Guardrails", () => {
     }
   });
 
+  test("Garden topic selection keeps wizard navigation reachable across viewport sizes", async ({ page }) => {
+    await navigateToPage(page, Page.Guardrails);
+    await page.getByRole("tab", { name: "Guardrail Garden", exact: true }).click();
+    await page.getByText("Denied Financial Advice", { exact: true }).click();
+    await page.getByRole("button", { name: "Create Guardrail", exact: true }).click();
+
+    const wizard = page.getByRole("dialog", { name: "Create guardrail" });
+    await expect(wizard.getByLabel("Guardrail Name", { exact: true })).toHaveValue("Denied Financial Advice");
+    await wizard.getByRole("button", { name: "Next", exact: true }).click();
+    const selectedTopic = wizard.getByRole("row").filter({ hasText: "Denied Financial / Investment Advice" });
+    await expect(selectedTopic).toHaveCount(1);
+
+    for (const viewport of [
+      { width: 1008, height: 743 },
+      { width: 390, height: 844 },
+      { width: 1440, height: 900 },
+      { width: 640, height: 480 },
+    ]) {
+      await page.setViewportSize(viewport);
+      for (const name of ["Cancel", "Previous", "Next"]) {
+        await expect(wizard.getByRole("button", { name, exact: true })).toBeInViewport({ ratio: 1 });
+      }
+      await wizard.getByRole("button", { name: "Next", exact: true }).click();
+      await expect(wizard.getByRole("button", { name: "Add prebuilt pattern", exact: true })).toBeVisible();
+      await wizard.getByRole("button", { name: "Previous", exact: true }).click();
+      await expect(selectedTopic).toHaveCount(1);
+    }
+
+    await wizard.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(wizard).not.toBeVisible();
+  });
+
   test("A guardrail created through the wizard blocks the keyword it was given", async ({ page }) => {
     const stamp = Date.now();
     const guardrailName = `e2e-guardrail-create-${stamp}`;
